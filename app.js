@@ -62,7 +62,17 @@ function renderReviews() {
     const product = document.createElement('span');
     product.className = 'review-item__product';
     product.textContent = review.product;
-    identity.append(name, product);
+    const date = document.createElement('time');
+    date.className = 'review-item__date';
+    if (review.createdAt) {
+      date.dateTime = review.createdAt;
+      date.textContent = new Intl.DateTimeFormat('en-NG', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+      }).format(new Date(review.createdAt));
+    }
+    identity.append(name, product, date);
     const stars = document.createElement('span');
     stars.className = 'review-item__stars';
     stars.setAttribute('aria-label', `${review.rating} out of 5 stars`);
@@ -99,6 +109,7 @@ async function loadApprovedReviews() {
     product: item.product,
     rating: item.rating,
     text: item.review,
+    createdAt: item.created_at,
   }));
   renderReviews();
 }
