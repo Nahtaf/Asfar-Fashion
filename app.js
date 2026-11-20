@@ -1,6 +1,10 @@
 // WhatsApp number in international format, digits only.
 const WHATSAPP_NUMBER = "2347039244305";
 
+const SUPABASE_URL = "https://hvdufdlrcvanzutzdmnu.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_ZKfLiB9mPwSnYf3BkHRtgA_B5gNVUkG";
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
 (function theme() {
   const t = document.querySelector('[data-theme-toggle]'), r = document.documentElement;
   const sun = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>';
@@ -26,17 +30,7 @@ document.querySelectorAll('[data-ask]').forEach(b => b.addEventListener('click',
   openWhatsApp(`Hello Asfar Fashion, I'm interested in your ${b.dataset.ask}. Could you share the sizes, colours and prices?`);
 }));
 
-// Replace this illustrative sample with approved customer reviews before launch.
-const publishedReviews = [
-  {
-    sample: false,
-    name: 'Aliyu',
-    product: 'Tote Bag',
-    rating: 4,
-    text: 'The Material was of a very good Quality!!!',
-  },
-  
-];
+let publishedReviews = [];
 const reviewList = document.querySelector('[data-review-list]');
 const reviewAverage = document.querySelector('[data-review-average]');
 const reviewSummaryStars = document.querySelector('[data-review-summary-stars]');
@@ -88,42 +82,109 @@ function renderReviews() {
   });
 }
 
-renderReviews();
+async function loadApprovedReviews() {
+  const { data, error } = await supabase
+    .from('reviews')
+    .select('name, product, rating, review, created_at')
+    .eq('is_approved', true)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    reviewCount.textContent = 'Reviews could not be loaded';
+    return;
+  }
+
+  publishedReviews = (data || []).map(item => ({
+    name: item.name,
+    product: item.product,
+    rating: item.rating,
+    text: item.review,
+  }));
+  renderReviews();
+}
+
+loadApprovedReviews();
 
 const reviewForm = document.getElementById('review-form');
 const reviewStatus = reviewForm.querySelector('.review-form__status');
-const ratingLabels = [...reviewForm.querySelectorAll('.review-form__stars label')];
+const reviewToast = document.querySelector('[data-review-toast]');
+const ratingContainer = reviewForm.querySelector('.review-form__stars');
+const ratingLabels = [...ratingContainer.querySelectorAll('label')];
+let reviewToastTimer;
 
 function setRatingPreview(value) {
-  ratingLabels.forEach((label, index) => label.classList.toggle('is-active', index < value));
+  ratingLabels.forEach((label, index) => {
+    label.classList.toggle('is-active', index < value);
+  });
+}
+
+function showReviewNotification(message, isError = false) {
+  clearTimeout(reviewToastTimer);
+  reviewToast.textContent = message;
+  reviewToast.classList.toggle('is-error', isError);
+  reviewToast.classList.add('is-visible');
+  reviewToastTimer = setTimeout(() => reviewToast.classList.remove('is-visible'), 5000);
 }
 
 ratingLabels.forEach((label, index) => {
   label.addEventListener('mouseenter', () => setRatingPreview(index + 1));
-  label.querySelector('input').addEventListener('change', event => setRatingPreview(Number(event.target.value)));
-});
-reviewForm.querySelector('.review-form__stars').addEventListener('mouseleave', () => {
-  setRatingPreview(Number(new FormData(reviewForm).get('rating')) || 0);
+  label.querySelector('input').addEventListener('change', event => {
+    const value = Number(event.target.value);
+    ratingLabels.forEach((ratingLabel, ratingIndex) => {
+      ratingLabel.classList.toggle('is-selected', ratingIndex < value);
+    });
+    setRatingPreview(value);
+  });
 });
 
-reviewForm.addEventListener('submit', event => {
+ratingContainer.addEventListener('mouseleave', () => {
+  const selected = Number(new FormData(reviewForm).get('rating')) || 0;
+  setRatingPreview(selected);
+});
+
+reviewForm.addEventListener('submit', async event => {
   event.preventDefault();
   const values = new FormData(reviewForm);
   const name = values.get('name').toString().trim();
   const product = values.get('product').toString().trim();
   const rating = Number(values.get('rating'));
   const text = values.get('review').toString().trim();
-  const consent = values.get('consent') ? 'Yes, Asfar may publish it with my first name after approval.' : 'No permission to publish.';
-  const message = [
-    'Hello Asfar Fashion, I would like to submit a customer review.',
-    `Name: ${name}`,
-    `Product: ${product}`,
-    `Rating: ${rating}/5`,
-    `Review: ${text}`,
-    `Publishing permission: ${consent}`,
-  ].join('\n');
-  openWhatsApp(message);
-  reviewStatus.textContent = 'Your review is ready in WhatsApp. Send the message there to submit it to Asfar.';
+  const consent = values.get('consent') === 'yes';
+
+  if (!consent) {
+    reviewStatus.textContent = 'Please give publishing permission before submitting.';
+    showReviewNotification('Please give publishing permission before submitting.', true);
+    return;
+  }
+
+  const submitButton = reviewForm.querySelector('button[type="submit"]');
+  submitButton.disabled = true;
+  submitButton.textContent = 'Submitting...';
+  reviewStatus.textContent = '';
+
+  const { error } = await supabase.from('reviews').insert({
+    name,
+    product,
+    rating,
+    review: text,
+    publishing_permission: true,
+    is_approved: false,
+  });
+
+  submitButton.disabled = false;
+  submitButton.textContent = 'Submit review';
+
+  if (error) {
+    reviewStatus.textContent = 'Your review could not be submitted. Please try again.';
+    showReviewNotification('Your review could not be submitted. Please try again.', true);
+    console.error(error);
+    return;
+  }
+
+  reviewForm.reset();
+  ratingLabels.forEach(label => label.classList.remove('is-selected', 'is-active'));
+  reviewStatus.textContent = 'Thank you. Your review was submitted and is awaiting approval.';
+  showReviewNotification('Review submitted successfully. It is awaiting approval.');
 });
 
 document.querySelector('[data-copy-review-link]').addEventListener('click', async () => {
