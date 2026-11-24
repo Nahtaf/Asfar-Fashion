@@ -245,11 +245,16 @@ reviewForm.addEventListener('submit', async event => {
   reviewStatus.textContent = 'Thank you. Your review is now published.';
   showReviewNotification('Review published successfully.');
   await loadPublicReviews();
+  const newestReview = reviewList.firstElementChild;
+  newestReview?.scrollIntoView({
+    behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
+    block: 'start',
+  });
 });
 
 document.querySelector('[data-copy-review-link]').addEventListener('click', async () => {
   const status = document.querySelector('.reviews__share-status');
-  const link = `${window.location.href.split('#')[0]}#reviews`;
+  const link = `${window.location.href.split('#')[0]}#review-form`;
   try {
     await navigator.clipboard.writeText(link);
     status.textContent = 'Review link copied.';

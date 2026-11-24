@@ -34,7 +34,7 @@ export async function fetchPublicReviews() {
 
 export function createReviewCard(review) {
   const article = document.createElement('article');
-  article.className = 'review-item';
+  article.className = review.photoUrl ? 'review-item review-item--with-photo' : 'review-item';
   const head = document.createElement('div');
   head.className = 'review-item__head';
   const identity = document.createElement('div');
@@ -70,7 +70,6 @@ export function createReviewCard(review) {
   const text = document.createElement('p');
   text.className = 'review-item__text';
   text.textContent = review.text;
-  article.append(head, text);
 
   if (review.photoUrl) {
     const photo = document.createElement('img');
@@ -79,7 +78,12 @@ export function createReviewCard(review) {
     photo.alt = `Customer photo of ${review.product}`;
     photo.loading = 'lazy';
     photo.decoding = 'async';
-    article.append(photo);
+    const content = document.createElement('div');
+    content.className = 'review-item__content';
+    content.append(head, text);
+    article.append(photo, content);
+  } else {
+    article.append(head, text);
   }
 
   return article;
