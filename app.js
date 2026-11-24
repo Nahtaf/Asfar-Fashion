@@ -3,20 +3,6 @@ import { createReviewCard, fetchPublicReviews, supabase } from './reviews.js';
 // WhatsApp number in international format, digits only.
 const WHATSAPP_NUMBER = "2347039244305";
 
-(function theme() {
-  const t = document.querySelector('[data-theme-toggle]'), r = document.documentElement;
-  const sun = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>';
-  const moon = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
-  let d = matchMedia('(prefers-color-scheme:dark)').matches ? 'dark' : 'light';
-  const apply = () => {
-    r.setAttribute('data-theme', d);
-    t.innerHTML = d === 'dark' ? sun : moon;
-    t.setAttribute('aria-label', 'Switch to ' + (d === 'dark' ? 'light' : 'dark') + ' mode');
-  };
-  apply();
-  t.addEventListener('click', () => { d = d === 'dark' ? 'light' : 'dark'; apply(); });
-})();
-
 const waLink = text => `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(text)}`;
 const openWhatsApp = text => window.open(waLink(text), '_blank', 'noopener');
 
@@ -53,17 +39,25 @@ function renderReviews() {
 
 }
 
-async function loadPublicReviews() {
+async function loadPublicReviews(alignReviewForm = false) {
   try {
     publishedReviews = await fetchPublicReviews();
     renderReviews();
+    if (alignReviewForm && window.location.hash === '#review-form') {
+      requestAnimationFrame(() => {
+        document.getElementById('review-form').scrollIntoView({
+          behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
+          block: 'start',
+        });
+      });
+    }
   } catch (error) {
     reviewCount.textContent = 'Reviews could not be loaded';
     console.error(error);
   }
 }
 
-loadPublicReviews();
+loadPublicReviews(true);
 
 const reviewForm = document.getElementById('review-form');
 const reviewStatus = reviewForm.querySelector('.review-form__status');

@@ -6,6 +6,7 @@
 <title>Customer Reviews — Asfar Fashion</title>
 <meta name="description" content="Read customer reviews of Asfar Fashion bags.">
 <link rel="icon" type="image/png" href="assets/favicon.png">
+<script src="theme.js"></script>
 <link href="https://api.fontshare.com/v2/css?f[]=clash-grotesk@500,600&f[]=switzer@400,500,600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 </head>
@@ -18,7 +19,10 @@
       <img class="logo logo--on-light" src="assets/logo-header-black.png" alt="Asfar Fashion" width="1200" height="282">
       <img class="logo logo--on-dark" src="assets/logo-header-white.png" alt="" aria-hidden="true" width="1200" height="282">
     </a>
-    <a class="btn btn--dark btn--sm" href="index.html">Back to Home</a>
+    <div class="header__actions">
+      <button class="icon-btn" data-theme-toggle aria-label="Switch to dark mode"></button>
+      <a class="btn btn--dark btn--sm" href="index.html">Back to Home</a>
+    </div>
   </div>
 </header>
 
