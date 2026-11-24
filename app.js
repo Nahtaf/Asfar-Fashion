@@ -1,9 +1,7 @@
+import { createReviewCard, fetchPublicReviews, supabase } from './reviews.js';
+
 // WhatsApp number in international format, digits only.
 const WHATSAPP_NUMBER = "2347039244305";
-
-const SUPABASE_URL = "https://hvdufdlrcvanzutzdmnu.supabase.co";
-const SUPABASE_ANON_KEY = "sb_publishable_ZKfLiB9mPwSnYf3BkHRtgA_B5gNVUkG";
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 (function theme() {
   const t = document.querySelector('[data-theme-toggle]'), r = document.documentElement;
@@ -35,9 +33,12 @@ const reviewList = document.querySelector('[data-review-list]');
 const reviewAverage = document.querySelector('[data-review-average]');
 const reviewSummaryStars = document.querySelector('[data-review-summary-stars]');
 const reviewCount = document.querySelector('[data-review-count]');
+const reviewSeeAll = document.querySelector('[data-review-see-all]');
+const REVIEW_PREVIEW_LIMIT = 4;
 
 function renderReviews() {
-  reviewList.replaceChildren();
+  reviewList.replaceChildren(...publishedReviews.slice(0, REVIEW_PREVIEW_LIMIT).map(createReviewCard));
+  reviewSeeAll.hidden = publishedReviews.length <= REVIEW_PREVIEW_LIMIT;
   const customerReviews = publishedReviews.filter(review => !review.sample);
   if (!customerReviews.length) {
     reviewAverage.textContent = '—';
@@ -50,78 +51,82 @@ function renderReviews() {
     reviewCount.textContent = `${customerReviews.length} ${customerReviews.length === 1 ? 'review' : 'reviews'}`;
   }
 
-  publishedReviews.forEach(review => {
-    const article = document.createElement('article');
-    article.className = 'review-item';
-    const head = document.createElement('div');
-    head.className = 'review-item__head';
-    const identity = document.createElement('div');
-    const name = document.createElement('strong');
-    name.className = 'review-item__name';
-    name.textContent = review.name;
-    const product = document.createElement('span');
-    product.className = 'review-item__product';
-    product.textContent = review.product;
-    const date = document.createElement('time');
-    date.className = 'review-item__date';
-    if (review.createdAt) {
-      date.dateTime = review.createdAt;
-      date.textContent = new Intl.DateTimeFormat('en-NG', {
-        day: 'numeric',
-        month: 'short',
-        year: 'numeric',
-      }).format(new Date(review.createdAt));
-    }
-    identity.append(name, product, date);
-    const stars = document.createElement('span');
-    stars.className = 'review-item__stars';
-    stars.setAttribute('aria-label', `${review.rating} out of 5 stars`);
-    stars.textContent = '★'.repeat(review.rating) + '☆'.repeat(5 - review.rating);
-    head.append(identity, stars);
-    const text = document.createElement('p');
-    text.className = 'review-item__text';
-    text.textContent = review.text;
-    if (review.sample) {
-      const sampleLabel = document.createElement('p');
-      sampleLabel.className = 'review-item__sample';
-      sampleLabel.textContent = 'Sample · not a customer review';
-      article.append(sampleLabel);
-    }
-    article.append(head, text);
-    reviewList.append(article);
-  });
 }
 
-async function loadApprovedReviews() {
-  const { data, error } = await supabase
-    .from('reviews')
-    .select('name, product, rating, review, created_at')
-    .eq('is_approved', true)
-    .order('created_at', { ascending: false });
-
-  if (error) {
+async function loadPublicReviews() {
+  try {
+    publishedReviews = await fetchPublicReviews();
+    renderReviews();
+  } catch (error) {
     reviewCount.textContent = 'Reviews could not be loaded';
-    return;
+    console.error(error);
   }
-
-  publishedReviews = (data || []).map(item => ({
-    name: item.name,
-    product: item.product,
-    rating: item.rating,
-    text: item.review,
-    createdAt: item.created_at,
-  }));
-  renderReviews();
 }
 
-loadApprovedReviews();
+loadPublicReviews();
 
 const reviewForm = document.getElementById('review-form');
 const reviewStatus = reviewForm.querySelector('.review-form__status');
 const reviewToast = document.querySelector('[data-review-toast]');
 const ratingContainer = reviewForm.querySelector('.review-form__stars');
 const ratingLabels = [...ratingContainer.querySelectorAll('label')];
+const reviewPhotoInput = reviewForm.elements.photo;
+const reviewPhotoPreview = document.querySelector('[data-photo-preview]');
+const reviewPhotoPreviewImage = document.querySelector('[data-photo-preview-image]');
 let reviewToastTimer;
+let reviewPhotoPreviewUrl;
+
+async function compressReviewPhoto(file) {
+  const bitmap = await createImageBitmap(file);
+  const scale = Math.min(1, 1600 / Math.max(bitmap.width, bitmap.height));
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.round(bitmap.width * scale);
+  canvas.height = Math.round(bitmap.height * scale);
+  const context = canvas.getContext('2d');
+  context.fillStyle = '#fff';
+  context.fillRect(0, 0, canvas.width, canvas.height);
+  context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  bitmap.close();
+
+  for (const quality of [0.82, 0.72, 0.62]) {
+    const compressed = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', quality));
+    if (compressed && compressed.size <= 1.8 * 1024 * 1024) {
+      return new File([compressed], 'review-photo.jpg', { type: 'image/jpeg' });
+    }
+  }
+  throw new Error('Photo could not be compressed to the upload limit.');
+}
+
+function clearReviewPhotoPreview() {
+  if (reviewPhotoPreviewUrl) URL.revokeObjectURL(reviewPhotoPreviewUrl);
+  reviewPhotoPreviewUrl = null;
+  reviewPhotoPreviewImage.removeAttribute('src');
+  reviewPhotoPreview.hidden = true;
+}
+
+reviewPhotoInput.addEventListener('change', () => {
+  const photo = reviewPhotoInput.files[0];
+  if (!photo) {
+    clearReviewPhotoPreview();
+    return;
+  }
+  if (!['image/jpeg', 'image/png', 'image/webp'].includes(photo.type) || photo.size > 12 * 1024 * 1024) {
+    reviewPhotoInput.value = '';
+    clearReviewPhotoPreview();
+    reviewStatus.textContent = 'Choose a JPEG, PNG or WebP photo under 12 MB.';
+    return;
+  }
+  clearReviewPhotoPreview();
+  reviewPhotoPreviewUrl = URL.createObjectURL(photo);
+  reviewPhotoPreviewImage.src = reviewPhotoPreviewUrl;
+  reviewPhotoPreview.hidden = false;
+  reviewStatus.textContent = '';
+});
+
+document.querySelector('[data-photo-remove]').addEventListener('click', () => {
+  reviewPhotoInput.value = '';
+  clearReviewPhotoPreview();
+});
 
 function setRatingPreview(value) {
   ratingLabels.forEach((label, index) => {
@@ -160,6 +165,8 @@ reviewForm.addEventListener('submit', async event => {
   const product = values.get('product').toString().trim();
   const rating = Number(values.get('rating'));
   const text = values.get('review').toString().trim();
+  const selectedPhoto = values.get('photo');
+  const photo = selectedPhoto instanceof File && selectedPhoto.size ? selectedPhoto : null;
   const consent = values.get('consent') === 'yes';
 
   if (!consent) {
@@ -168,19 +175,59 @@ reviewForm.addEventListener('submit', async event => {
     return;
   }
 
+  if (photo && (!['image/jpeg', 'image/png', 'image/webp'].includes(photo.type) || photo.size > 12 * 1024 * 1024)) {
+    reviewStatus.textContent = 'Choose a JPEG, PNG or WebP photo under 12 MB.';
+    showReviewNotification('Choose a JPEG, PNG or WebP photo under 12 MB.', true);
+    return;
+  }
+
   const submitButton = reviewForm.querySelector('button[type="submit"]');
   submitButton.disabled = true;
   submitButton.textContent = 'Submitting...';
   reviewStatus.textContent = '';
 
-  const { error } = await supabase.from('reviews').insert({
+  let photoPath = null;
+  if (photo) {
+    let compressedPhoto;
+    try {
+      compressedPhoto = await compressReviewPhoto(photo);
+    } catch (compressionError) {
+      submitButton.disabled = false;
+      submitButton.textContent = 'Submit review';
+      reviewStatus.textContent = 'Your photo could not be prepared. Please try another photo or submit without it.';
+      showReviewNotification('Photo could not be prepared. You can try another or submit without a photo.', true);
+      console.error(compressionError);
+      return;
+    }
+
+    const { data: uploadedPhoto, error: photoError } = await supabase.storage
+      .from('review-photos')
+      .upload(`reviews/${crypto.randomUUID()}.jpg`, compressedPhoto, {
+        contentType: 'image/jpeg',
+        cacheControl: '31536000',
+      });
+
+    if (photoError) {
+      submitButton.disabled = false;
+      submitButton.textContent = 'Submit review';
+      reviewStatus.textContent = 'Your photo could not be uploaded. Please try again or submit without it.';
+      showReviewNotification('Photo upload failed. You can try again or submit without a photo.', true);
+      console.error(photoError);
+      return;
+    }
+    photoPath = uploadedPhoto.path;
+  }
+
+  const reviewData = {
     name,
     product,
     rating,
     review: text,
     publishing_permission: true,
-    is_approved: false,
-  });
+    is_approved: true,
+  };
+  if (photoPath) reviewData.photo_path = photoPath;
+  const { error } = await supabase.from('reviews').insert(reviewData);
 
   submitButton.disabled = false;
   submitButton.textContent = 'Submit review';
@@ -193,9 +240,11 @@ reviewForm.addEventListener('submit', async event => {
   }
 
   reviewForm.reset();
+  clearReviewPhotoPreview();
   ratingLabels.forEach(label => label.classList.remove('is-selected', 'is-active'));
-  reviewStatus.textContent = 'Thank you. Your review was submitted and is awaiting approval.';
-  showReviewNotification('Review submitted successfully. It is awaiting approval.');
+  reviewStatus.textContent = 'Thank you. Your review is now published.';
+  showReviewNotification('Review published successfully.');
+  await loadPublicReviews();
 });
 
 document.querySelector('[data-copy-review-link]').addEventListener('click', async () => {

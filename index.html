@@ -206,7 +206,7 @@
           <h2 id="reviews-title" class="h2">Your experience matters.</h2>
         </div>
         <div class="reviews__intro">
-          <p class="muted">Bought an Asfar bag? Tell us what you think. Reviews are checked by our team before they appear here.</p>
+          <p class="muted">Bought an Asfar bag? Tell us what you think. Reviews appear as soon as you submit them.</p>
           <button class="link-btn reviews__share" type="button" data-copy-review-link>Copy review link</button>
           <span class="reviews__share-status small muted" role="status" aria-live="polite"></span>
         </div>
@@ -220,6 +220,7 @@
             <span class="muted small" data-review-count>No customer reviews published yet</span>
           </div>
           <div class="reviews__list" data-review-list></div>
+          <a class="link-btn reviews__all" data-review-see-all href="reviews.html" hidden>See all reviews</a>
         </div>
 
         <form class="review-form" id="review-form">
@@ -231,8 +232,27 @@
             <input type="text" name="name" required maxlength="60" autocomplete="name" placeholder="e.g. Aisha">
           </label>
           <label>What did you buy?
-            <input type="text" name="product" required maxlength="80" placeholder="e.g. Laptop bag">
+            <input type="text" name="product" list="review-products" required maxlength="80" placeholder="Start typing or choose a bag style">
+            <datalist id="review-products">
+              <option value="Backpacks & School Bags">
+              <option value="Laptop & Office Bags">
+              <option value="Travel & Luggage Bags">
+              <option value="Crossbody Bags (Asfar Urban Bag)">
+              <option value="Tote Bags (Asfar Essence Tote)">
+              <option value="Sling & Messenger Bags">
+              <option value="Lunch Bags">
+              <option value="Pouches & Waist Bags">
+            </datalist>
           </label>
+          <div class="review-form__photo">
+            <label for="review-photo">Bag photo <span class="muted small">(optional)</span></label>
+            <input id="review-photo" type="file" name="photo" accept="image/jpeg,image/png,image/webp" capture="environment" aria-describedby="review-photo-note">
+            <span id="review-photo-note" class="small muted">JPEG, PNG or WebP, up to 12 MB. Photos are resized before upload.</span>
+            <div class="review-form__photo-preview" data-photo-preview hidden>
+              <img data-photo-preview-image alt="Preview of the selected bag photo">
+              <button class="link-btn" type="button" data-photo-remove>Remove photo</button>
+            </div>
+          </div>
           <fieldset class="review-form__rating">
             <legend>Your rating</legend>
             <div class="review-form__stars" role="radiogroup" aria-label="Choose a rating from one to five stars">
@@ -248,9 +268,9 @@
           </label>
           <label class="review-form__consent">
             <input type="checkbox" name="consent" value="yes" required>
-            <span>Asfar may publish this review with my first name after checking it.</span>
+            <span>Asfar may publish my review, first name and any photo I add immediately after submission.</span>
           </label>
-          <p class="review-form__note small muted">Your review is submitted directly for Asfar to approve. It will only appear publicly after approval.</p>
+          <p class="review-form__note small muted">Your review will be visible publicly as soon as you submit it.</p>
           <button class="btn btn--dark btn--block" type="submit">Submit review</button>
           <p class="review-form__status small" role="status" aria-live="polite"></p>
         </form>

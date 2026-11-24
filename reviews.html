@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Customer Reviews — Asfar Fashion</title>
+<meta name="description" content="Read customer reviews of Asfar Fashion bags.">
+<link rel="icon" type="image/png" href="assets/favicon.png">
+<link href="https://api.fontshare.com/v2/css?f[]=clash-grotesk@500,600&f[]=switzer@400,500,600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="header">
+  <div class="wrap header__inner">
+    <a href="index.html" class="brand" aria-label="Asfar Fashion home">
+      <img class="logo logo--on-light" src="assets/logo-header-black.png" alt="Asfar Fashion" width="1200" height="282">
+      <img class="logo logo--on-dark" src="assets/logo-header-white.png" alt="" aria-hidden="true" width="1200" height="282">
+    </a>
+    <a class="btn btn--dark btn--sm" href="index.html#reviews">Back to Asfar Fashion</a>
+  </div>
+</header>
+
+<main id="main" class="reviews-page__main">
+  <div class="wrap reviews-page__content">
+    <div class="reviews-page__heading">
+      <div>
+        <p class="eyebrow eyebrow--dark">Customer reviews</p>
+        <h1 class="h2">Every experience, in their words.</h1>
+      </div>
+      <a class="link-btn" href="index.html#review-form">Write a review</a>
+    </div>
+    <section class="reviews__published" aria-label="All customer reviews" aria-live="polite">
+      <div class="reviews__summary">
+        <strong class="reviews__average" data-review-average>—</strong>
+        <span class="reviews__summary-stars" data-review-summary-stars aria-hidden="true">☆☆☆☆☆</span>
+        <span class="muted small" data-review-count>Loading reviews...</span>
+      </div>
+      <div class="reviews__list" data-review-list></div>
+    </section>
+  </div>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script type="module" src="reviews-page.js"></script>
+</body>
+</html>

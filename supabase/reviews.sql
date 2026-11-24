@@ -4,28 +4,58 @@ create table if not exists public.reviews (
   product text not null,
   rating smallint not null check (rating between 1 and 5),
   review text not null check (char_length(review) between 10 and 1000),
+  photo_path text,
   publishing_permission boolean not null default false,
-  is_approved boolean not null default false,
+  is_approved boolean not null default true,
   created_at timestamptz not null default now()
 );
 
+alter table public.reviews add column if not exists photo_path text;
+alter table public.reviews alter column is_approved set default true;
+
 alter table public.reviews enable row level security;
 
+drop policy if exists "Public can read approved reviews" on public.reviews;
 create policy "Public can read approved reviews"
 on public.reviews
 for select
 using (is_approved = true);
 
+drop policy if exists "Visitors can submit permission-based reviews" on public.reviews;
 create policy "Visitors can submit permission-based reviews"
 on public.reviews
 for insert
 to anon
 with check (
   publishing_permission = true
-  and is_approved = false
+  and is_approved = true
   and char_length(name) between 1 and 60
   and char_length(product) between 1 and 80
 );
 
+update public.reviews
+set is_approved = true
+where publishing_permission = true and is_approved = false;
+
 revoke all on table public.reviews from anon;
 grant select, insert on table public.reviews to anon;
+
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values (
+  'review-photos',
+  'review-photos',
+  true,
+  2097152,
+  array['image/jpeg']
+)
+on conflict (id) do update set
+  public = excluded.public,
+  file_size_limit = excluded.file_size_limit,
+  allowed_mime_types = excluded.allowed_mime_types;
+
+drop policy if exists "Visitors can upload review photos" on storage.objects;
+create policy "Visitors can upload review photos"
+on storage.objects
+for insert
+to anon
+with check (bucket_id = 'review-photos' and name like 'reviews/%');
